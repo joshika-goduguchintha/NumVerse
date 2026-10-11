@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Code Converter - Full AI</title>
+<script src="scrpt.js"></script>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma;background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460);color:#fff;display:flex;flex-direction:column;align-items:center;padding:20px}
+h1{font-size:2rem;margin-bottom:10px;background:linear-gradient(90deg,#00d4ff,#7b2cbf);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.converter-container{background:rgba(255,255,255,0.1);padding:20px;border-radius:20px;width:100%;max-width:500px}
+.input-row{display:flex;gap:10px}
+input,select{padding:12px;border-radius:10px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);flex:1}
+select option{background:#1a1a2e;color:#fff}
+.result-box{margin-top:20px;padding:20px;background:rgba(0,212,255,0.1);border-radius:10px}
+button{padding:10px 20px;border:none;border-radius:20px;background:linear-gradient(135deg,#00d4ff,#7b2cbf);color:#fff;cursor:pointer}
+.chatbot-container{position:fixed;bottom:80px;right:20px;width:360px;height:550px;background:#1a1a2e;border-radius:15px;display:none;flex-direction:column}
+.chatbot-container.active{display:flex}
+.chatbot-messages{flex:1;overflow:auto;padding:10px}
+.message{padding:10px;border-radius:10px;margin:5px 0}
+.bot{background:rgba(0,212,255,0.2)}
+.user{background:linear-gradient(135deg,#7b2cbf,#00d4ff)}
+.chatbot-input{display:flex}
+.chatbot-input input{flex:1}
+</style>
+</head>
+
+<body>
+
+<h1>Code Converter</h1>
+
+<div class="converter-container">
+<div class="input-row">
+<input id="inputValue" placeholder="Enter number">
+<select id="fromBase">
+<option value="10">Decimal</option>
+<option value="2">Binary</option>
+<option value="8">Octal</option>
+<option value="16">Hexadecimal</option>
+</select>
+<select id="toBase">
+<option value="2">Binary</option>
+<option value="10">Decimal</option>
+<option value="8">Octal</option>
+<option value="16">Hexadecimal</option>
+</select>
+</div>
+
+<br>
+<button onclick="convert()">Convert</button>
+<div class="result-box" id="result">Result</div>
+</div>
+
+<button onclick="toggleChatbot()">🤖</button>
+
+<div class="chatbot-container" id="chatbot">
+<div class="chatbot-messages" id="chatMessages"></div>
+<div class="chatbot-input">
+<input id="chatInput" placeholder="Ask anything..." onkeypress="if(event.key==='Enter')sendMessage()">
+<button onclick="startVoice()">🎤</button>
+</div>
+</div>
+
+<script>
+
+const resultBox = document.getElementById('result');
+
+/* ---------- HELPERS ---------- */
+function charToValue(c){ return parseInt(c,36); }
+
+/* ---------- TO DECIMAL ---------- */
+function toDecimal(value, base){
+value = value.toUpperCase();
+
+if(value.includes('.')){
+let [intPart, fracPart] = value.split('.');
+let intVal = parseInt(intPart || "0", base);
+if(isNaN(intVal)) return NaN;
+
+let fracVal = 0;
+for(let i=0;i<fracPart.length;i++){
+let digit = charToValue(fracPart[i]);
+if(isNaN(digit) || digit>=base) return NaN;
+fracVal += digit * Math.pow(base, -(i+1));
+}
+return intVal + fracVal;
+}
+
+let parsed = parseInt(value, base);
+return isNaN(parsed) ? NaN : parsed;
+}
+
+/* ---------- FROM DECIMAL ---------- */
+function fromDecimal(num, base){
+
+let intPart = Math.floor(num);
+let fracPart = num - intPart;
+
+let intStr = intPart.toString(base).toUpperCase();
+
+if(fracPart === 0) return intStr;
+
+let fracStr = "";
+let limit = 15;
+let seen = {};
+
+while(fracPart > 0 && limit > 0){
+
+if(seen[fracPart]) break;
+seen[fracPart] = true;
+
+fracPart *= base;
+let digit = Math.floor(fracPart);
+
+fracStr += digit.toString(base).toUpperCase();
+fracPart -= digit;
+limit--;
+}
+
+if(fracPart !== 0){
+fracStr += "...";
+}
+
+return intStr + "." + fracStr;
+}
+
+/* ---------- MAIN ---------- */
+function convert(){
+let val=document.getElementById('inputValue').value.trim();
+if(!val){ resultBox.textContent="Enter value"; return; }
+
+let from=parseInt(document.getElementById('fromBase').value);
+let to=parseInt(document.getElementById('toBase').value);
+
+let decimal = toDecimal(val, from);
+
+if(isNaN(decimal)){
+resultBox.textContent="Invalid input";
+return;
+}
+
+resultBox.textContent = fromDecimal(decimal, to);
+}
+
+/* ---------- CHATBOT ---------- */
+function toggleChatbot(){
+document.getElementById('chatbot').classList.toggle('active');
+}
+
+function sendMessage(){
+let input=document.getElementById('chatInput');
+let msg=input.value.trim();
+if(!msg)return;
+
+addMessage(msg,'user');
+addMessage(smartAI(msg),'bot');
+
+input.value="";
+}
+
+function addMessage(text,type){
+let div=document.createElement('div');
+div.className='message '+type;
+div.innerHTML=text;
+document.getElementById('chatMessages').appendChild(div);
+}
+
+/* ---------- SMART AI ---------- */
+function smartAI(msg){
+msg = msg.toLowerCase();
+
+/* THEORY */
+if(msg.includes('theory') || msg.includes('number system')){
+return `<b>Theory:</b><br>
+Binary (2), Octal (8), Decimal (10), Hexadecimal (16)<br><br>
+Binary↔Octal = 3 bits<br>
+Binary↔Hex = 4 bits`;
+}
+
+/* VALUE */
+let match = msg.match(/[0-9a-f.]+/);
+if(!match) return "Enter valid number";
+
+let value = match[0].toUpperCase();
+
+/* BASE DETECTION */
+let from;
+if(msg.includes('binary to')||msg.includes('from binary')) from=2;
+else if(msg.includes('octal to')||msg.includes('from octal')) from=8;
+else if(msg.includes('hex to')||msg.includes('from hex')) from=16;
+else if(msg.includes('decimal to')||msg.includes('from decimal')) from=10;
+else from=10;
+
+/* TARGET */
+let to;
+if(msg.includes('to binary')) to=2;
+else if(msg.includes('to octal')) to=8;
+else if(msg.includes('to hex')||msg.includes('to hexadecimal')) to=16;
+else if(msg.includes('to decimal')) to=10;
+else return "Specify target base";
+
+/* STEP 1 */
+let decimal = toDecimal(value, from);
+if(isNaN(decimal)) return "Invalid number";
+
+let steps = `<b>Step 1: Convert to Decimal</b><br>
+${value} (base ${from}) = ${decimal} (decimal)<br><br>`;
+
+/* STEP 2 */
+let ans = fromDecimal(decimal, to);
+
+steps += `<b>Step 2: Convert Decimal to Base ${to}</b><br>`;
+
+if(to===16){
+steps += "Divide by 16 (integer) & multiply fraction by 16<br>";
+}
+else if(to===2){
+steps += "Divide by 2 (integer) & multiply fraction by 2<br>";
+}
+else if(to===8){
+steps += "Divide by 8 (integer) & multiply fraction by 8<br>";
+}
+
+steps += `<br><b>Final Answer:</b> ${ans}<br>`;
+steps += `<br><i>Note: Fractional values may be approximate or repeating in other bases.</i>`;
+
+return `<b>Answer:</b> ${ans}<br><br>${steps}`;
+}
+
+/* ---------- VOICE ---------- */
+function startVoice(){
+
+if(!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)){
+alert("Use Google Chrome for voice");
+return;
+}
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const recognition = new SpeechRecognition();
+
+recognition.lang="en-US";
+recognition.start();
+
+addMessage("🎤 Listening...", "bot");
+
+recognition.onresult=function(e){
+let text=e.results[0][0].transcript;
+document.getElementById('chatInput').value=text;
+sendMessage();
+};
+
+recognition.onerror=function(e){
+addMessage("Error: "+e.error,"bot");
+};
+}
+
+</script>
+
+</body>
+</html>
